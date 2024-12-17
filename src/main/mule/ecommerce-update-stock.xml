@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:parameters-api="http://www.mulesoft.org/schema/mule/parameters-api"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/parameters-api http://www.mulesoft.org/schema/mule/parameters-api/current/mule-parameters-api.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="update-sku-stock-flow" doc:id="6377699c-aeba-4310-89d7-8186a2e2c03f" >
+		<logger level="INFO" doc:name="" doc:id="7fc60feb-7e82-4afc-8bb0-6bfd2dd8707e" message="Started running update stock flow"/>
+		<set-variable value="#[output application/json&#10;---&#10;{&#10;	eanCode: attributes.uriParams.eanCode,&#10;	storeCode: attributes.uriParams.storeCode,&#10;	quantity: payload.quantity&#10;}]" doc:name="Set params" doc:id="b7b81c05-05d4-40f9-a883-a54635d6951d" variableName="params" />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="a008c0ef-8644-409f-b45f-99436c7abb52" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="0463d953-f403-4fb4-9da0-57fc8f4d9a15" name="get-store-parameters" />
+		<choice doc:name="Choice" doc:id="54a6d858-23f8-4e75-af8a-a8fef1ff800b" >
+			<when expression="#[sizeOf(payload) == 0]">
+				<logger level="INFO" doc:name="No store parameters" doc:id="396bc208-30a2-4efc-9805-0328ef062f5d" message='#["There are no store parameters for store code $(vars.params.storeCode)"]' />
+				<ee:transform doc:name="Transform Message" doc:id="8529f156-1bba-4a78-9be9-8936e90de22a" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</when>
+			<otherwise >
+				<set-variable value="#[payload]" doc:name="Set store params" doc:id="4d7e8dc7-6b70-4d26-8b26-fe3a2e5e78a8" variableName="storeParams" />
+				<flow-ref doc:name="Get sku by ean" doc:id="84cf9871-8fda-450e-95d5-40ccdc8a87ce" name="get-sku-by-ean" />
+				<set-variable value="#[payload.Id]" doc:name="Set Variable" doc:id="1110813d-1dc3-4740-a94c-25441c84a409" variableName="skuId" />
+				<flow-ref doc:name="Update sku stock" doc:id="7dc140da-1bce-47d7-a4c7-d157684f19eb" name="update-sku-stock" />
+				<ee:transform doc:name="Transform Message" doc:id="a2a2640c-0f9f-440a-9b98-9f421ba6b611" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.params ++ {"skuId": vars.skuId}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="get-sku-by-ean" doc:id="2b4188cd-bf5b-4d50-9e04-98367dbbe09a" >
+		<logger level="INFO" doc:name="Logger" doc:id="c8daf52b-4a69-4ae1-9b8d-87c068b4f08f" message='#["Retrieving sku by ean for store $(vars.params.storeCode). Ean code: $(vars.params.eanCode)"]' />
+		<http:request method="GET" doc:name="Get sku by ean" doc:id="bfd47a03-489d-47fb-9819-6bd81f7a0910" url='#["$(vars.storeParams.url)/api/catalog_system/pvt/sku/stockkeepingunitbyean/{eanCode}"]' sendCorrelationId="NEVER" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"eanCode" : vars.params.eanCode
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="6eb7c66c-547d-4ada-b0fd-0f20883c1a56" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="c10fbbc6-0f1d-4fb5-ad4b-c19e85c79ebe" type="HTTP:CONNECTIVITY, HTTP:TIMEOUT">
+				<logger level="ERROR" doc:name="Logger" doc:id="6df708a1-2503-49a2-9c06-e3c54c1e1d91" message='#["Error on request get-sku-by-ean endpoint: $(vars.storeParams.url)/api/catalog_system/pvt/sku/stockkeepingunitbyean/{eanCode}"]' />
+			</on-error-propagate>
+			<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="3488ddcd-3213-46f2-87d1-9358275164a6" type="HTTP:NOT_FOUND">
+				<logger level="WARN" doc:name="Logger" doc:id="ce301a80-c181-48b9-8f32-350c4fb66d84" message='#["Ean not found: $(vars.storeParams.url)/api/catalog_system/pvt/sku/stockkeepingunitbyean/$(vars.params.eanCode)"]' />
+				<set-variable value="404" doc:name="Ean Not Found" doc:id="64aebc27-c0f2-4dd4-b085-962265eb93c9" variableName="httpStatus" />
+			</on-error-continue>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="60a22deb-26ec-4b52-9bc5-7a2199863e2e" type="ANY">
+				<logger level="WARN" doc:name="Logger" doc:id="b64af181-8ae5-454a-9de0-d94f6b6b9127" message='#["Erro ao tentar atualizar o estoque para a seguinte URL: $(vars.storeParams.url)/api/catalog_system/pvt/sku/stockkeepingunitbyean/$(vars.params.eanCode)"]' />
+				<set-variable value="500" doc:name="Erro Interno" doc:id="58a8bfe2-5e38-46c5-afdc-17dee3f9d636" variableName="httpStatus" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="update-sku-stock" doc:id="659ac398-1b21-43c9-9d9b-820ae8547990" >
+		<logger level="INFO" doc:name="Logger" doc:id="0342b328-014c-48b2-822d-1688017a1f09" message='#["Updating sku by ean for store $(vars.params.storeCode). SkuId: $(payload.Id)"]' />
+		<set-variable value='#[output application/json&#10;---&#10;{&#10;	"unlimitedQuantity": false,&#10;	"dateUtcOnBalanceSystem": null,&#10;	"quantity": vars.params.quantity&#10;}]' doc:name="Set Variable" doc:id="5688ff06-fd98-4a45-8f21-5bd5404b9698" variableName="updatePayload"/>
+		<http:request method="PUT" doc:name="Update sku quantity stock" doc:id="66eb911d-dd46-42e6-af7c-8ac0515a89b5" url='#["$(vars.storeParams.url)/api/logistics/pvt/inventory/skus/{skuId}/warehouses/$(vars.storeParams.warehouse)"]' sendCorrelationId="NEVER" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:body ><![CDATA[#[vars.updatePayload]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"skuId" : payload.Id
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="f48188db-0bfa-4d09-ada1-942410ff93dd">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="33ae2b8d-d223-4266-ae84-6555cdb6f28b" type="HTTP:CONNECTIVITY, HTTP:TIMEOUT" >
+				<logger level="INFO" doc:name="Logger" doc:id="86e08de3-3a05-49c2-8099-f0ead9a5bef8" message='#["Error on request update-sku-stock endpoint: $(vars.storeParams.url)/api/logistics/pvt/inventory/skus/{skuId}/warehouses/1_1"]' />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

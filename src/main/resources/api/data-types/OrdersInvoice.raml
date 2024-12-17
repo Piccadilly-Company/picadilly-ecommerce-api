@@ -1,0 +1,22 @@
+#%RAML 1.0 DataType
+
+type: object
+properties:
+  type: string
+  issuanceDate: string
+  invoiceNumber: integer
+  invoiceValue: number
+  invoiceKey: string | nil
+  invoiceUrl: string | nil
+  courier: string | nil
+  trackingNumber: string | nil
+  trackingUrl: string | nil
+  dispatchedDate: string | nil
+  items:
+    type: array
+    items:
+      type: object
+      properties:
+        id: string
+        price: number
+        quantity: number

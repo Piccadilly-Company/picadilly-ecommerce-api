@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:parameters-api="http://www.mulesoft.org/schema/mule/parameters-api"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/parameters-api http://www.mulesoft.org/schema/mule/parameters-api/current/mule-parameters-api.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="get-feed-items" doc:id="1997ec21-de60-4f7a-bb12-bf97301b41fc" >
+		<logger level="INFO" doc:name="Logger" doc:id="8c58a996-7f7a-480d-807f-e994d28d0f79" message='#["Get feed items for store $(attributes.uriParams.storeCode)"]'/>
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="a4c42de9-c55d-416b-b000-b3331f26e4bf" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="c580ede0-575d-4523-9deb-185f73049f8b" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="1e20b6f1-7b9c-4730-a26b-9304ef346e14" variableName="storeParams" />
+		<http:request method="GET" doc:name="Get feed items" doc:id="6c2777df-f3f1-461c-a34c-42ef2b870f0e" url='#["$(vars.storeParams.url)/api/orders/feed?maxlot=10"]' sendCorrelationId="NEVER" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="617bc059-cdc4-4171-9222-e991e9ce0337">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="get-order" doc:id="ebe98bb3-add1-4591-866c-dfaf6ddd2bf7" >
+		<logger level="INFO" doc:name="Logger" doc:id="2d10861c-50e1-4802-9ed3-4a7e15a91614" message='#["Get order with id $(attributes.uriParams.orderId) for store $(attributes.uriParams.storeCode)"]'/>
+		<set-variable value="#[output application/json&#10;---&#10;{&#10;	orderId: attributes.uriParams.orderId&#10;}]" doc:name="Set params" doc:id="00dab735-0f19-4735-95f9-b3de9f1fe6c9" variableName="params" />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="21cb404b-1e0d-41c8-a78b-54d8da4185e2" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="6ab01784-6363-4ebb-b74e-f6955613ac62" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="aeee59db-313f-4e8e-916b-e7d400f933e5" variableName="storeParams" />
+		<http:request method="GET" doc:name="Get order" doc:id="ac2077cb-852f-422a-8056-c50f84b1a988" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/{orderId}"]' sendCorrelationId="NEVER" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+					<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"orderId" : vars.params.orderId
+}]]]></http:uri-params>
+				</http:request>
+		<set-variable value="#[payload]" doc:name="Set order" doc:id="b0b14e47-3a10-4602-bb02-eab5e5251e7e" variableName="order"/>
+		<flow-ref doc:name="Get payment info" doc:id="b06d4fd4-43d2-4c56-b2f8-0a28d2a311e3" name="get-payment-info"/>
+		<set-variable value="#[payload]" doc:name="Set payment code" doc:id="d62bef81-a35a-4b78-8bad-63e6d3249039" variableName="paymentCode"/>
+		<ee:transform doc:name="Transform Message" doc:id="26274faa-3c37-447c-836a-718849a8b1f0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.order ++ {paymentCode: vars.paymentCode}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b5d2e892-109d-4942-ae57-6edd5d075987" type="HTTP:NOT_FOUND">
+				<logger level="WARN" doc:name="Logger" doc:id="1739ba65-076f-4f2c-919d-9b346fece6b7" message='#["Order not found: $(vars.params.orderId)"]' />
+				<set-variable value="404" doc:name="Order not found" doc:id="693451b1-85a7-46b6-958e-3f6e9172b54e" variableName="httpStatus" />
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="get-payment-info" doc:id="8f9a7197-e77a-4e9d-a6b0-5af42f134d74" >
+		<set-variable value="#[p('ecommerce.storeCode')]" doc:name="Set storeCode" doc:id="fd09c639-05eb-406f-a075-550f5afe1a84" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="96fb3d49-aa66-4cbb-9bff-4433d22c0458" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="5a1ecd0b-de04-40aa-927e-cc78554e3f67" variableName="storeParams" />
+		<http:request method="GET" doc:name="Get order" doc:id="6b0ba91f-f9a1-494a-a686-f8bac11c52d0" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/{orderId}"]' sendCorrelationId="NEVER" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+			<http:uri-params ><![CDATA[#[output application/java
+---
+{
+	"orderId" : vars.order.marketplaceOrderId
+}]]]></http:uri-params>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="cbaa6067-0e12-46fb-bad4-7985ebfd85e6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+var vtexPaymentCode = {((payload.paymentData.transactions.payments[0]))}.paymentSystem as Number
+
+---
+
+vtexPaymentCode]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="get-list-orders" doc:id="4fc8e9ec-7a73-4325-9bf1-9af923d7892d" >
+		<logger level="INFO" doc:name="Logger" doc:id="41721f6a-425b-4059-ac89-193e8a173270" message='#["Get list order for store $(attributes.uriParams.storeCode)"]'/>
+		<set-variable value='#[{&#10;	orderBy: attributes.queryParams.orderBy,&#10;	f_status: attributes.queryParams.f_status&#10;}]' doc:name="Set query params" doc:id="db57cbe2-26b0-4db9-aa59-98c018b04d9f" variableName="queryParams"/>
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="1f8b372f-0a16-46ea-bc97-23bdd38337c8" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="e2bfa49f-9265-4261-baa8-6e7625b5d2ee" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="d1db9c37-c5c4-45cd-80a3-ef3553743a90" variableName="storeParams" />
+		<http:request method="GET" doc:name="Get list orders" doc:id="7f696ad5-ec1f-4f4f-b254-227a6aeb8395" url='#["$(vars.storeParams.url)/api/oms/pvt/orders?orderBy=$(vars.queryParams.orderBy)&amp;f_status=$(vars.queryParams.f_status)"]' sendCorrelationId="NEVER" sendBodyMode="ALWAYS" outputMimeType="application/json" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="c75047ad-7003-490c-8f96-942cb9be944a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+vars.storeParams ++ payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="commit-feed" doc:id="7adfc5e7-3e24-4681-9d24-3e803ff0a33f" >
+		<logger level="INFO" doc:name="Logger" doc:id="279adae0-b6fe-47af-9cfb-2aee466a0339" message='#["Commit feed for store $(attributes.uriParams.storeCode)"]'/>
+		<set-variable value="#[output application/json&#10;---&#10;{&#10;	handles: payload&#10;}]" doc:name="Set params" doc:id="b59fd856-f0fa-4cd3-84b9-29111fb121bf" variableName="params" />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="c5e7e9dd-d2e9-4cc6-b797-327433f3390c" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="1258f434-536d-43fe-b34b-586196289d31" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="ef9ddc83-c333-4060-be00-30867b2f367b" variableName="storeParams" />
+		<http:request method="POST" doc:name="Commit feed item" doc:id="86234894-21dd-4b87-85f1-1504ecaa3269" url='#["$(vars.storeParams.url)/api/orders/feed"]' sendCorrelationId="NEVER" sendBodyMode="AUTO" responseTimeout="#[p('ecommerce.timeout')]">
+					<http:body><![CDATA[#[vars.params.handles]]]></http:body>
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+				</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="84ecc913-ba8a-4060-b619-cab09c6fad59">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

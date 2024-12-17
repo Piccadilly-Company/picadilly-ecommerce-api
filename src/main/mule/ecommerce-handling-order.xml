@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<flow name="post-start-handling-order" doc:id="87d226e7-cbfb-48cd-a873-b0a7eee3e8e8">
+		<logger level="INFO" doc:name="Logger" doc:id="2f9923c0-958e-44d1-8cd3-c3fa8fc102ef" message='#["Post to update status for store $(attributes.uriParams.storeCode)"]' />
+		<set-variable value="#[orderId: attributes.uriParams.orderId]" doc:name="Set Variable" doc:id="ac88710f-bab1-407d-98eb-19f09e3303c3" variableName="queryParams" />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="617a2873-f7e6-4bad-a116-4d6690c4e97f" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="8c28297d-8049-4496-a957-ce6139e76145" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="37dbd56a-6003-4218-a1b1-2ba4d6d81acd" variableName="storeParams" />
+		<http:request method="GET" doc:name="Get order" doc:id="149d049e-75c7-4f9a-bc6d-8cc3e0fe29b5" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/{orderId}"]' sendCorrelationId="NEVER" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/java
+---
+{
+	"orderId" : vars.queryParams.orderId
+}]]]></http:uri-params>
+		</http:request>
+		<choice doc:name="Choice" doc:id="6356f65f-d519-4bbb-a8a3-39c3b56ff4c2">
+			<when expression='#[payload.status != "ready-for-handling"]'>
+				<logger level="INFO" doc:name="Logger" doc:id="9cf6f7db-1b66-4a41-b42a-f922fb933d12" message='#[output application/json&#10;---&#10;&#10;"Order $(vars.queryParams.orderId) has a different status: $(payload.status)"]' />
+			</when>
+			<otherwise>
+				<logger level="INFO" doc:name="Logger" doc:id="8fb9254d-4406-4e3b-9820-e5613548b905" message='#["Start handling order $(vars.queryParams.orderId)"]' />
+				<http:request method="POST" doc:name="Start handling order" doc:id="c963741a-20b0-4c1b-94e3-025e48bf80ba" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/$(vars.queryParams.orderId)/start-handling"]' sendCorrelationId="NEVER" outputMimeType="application/json" sendBodyMode="ALWAYS">
+					<http:body><![CDATA[#[%dw 2.0
+output application/java
+---
+null]]]></http:body>
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+				</http:request>
+			</otherwise>
+		</choice>
+	</flow>
+	<flow name="update-order-partial-invoice" doc:id="af48bc5e-2a8f-403b-85ad-0e5c3821100d" >
+		<set-variable value='#[output application/json&#10;---&#10;{&#10;	"orderId": attributes.uriParams.orderId,&#10;	"invoiceNumber": attributes.uriParams.invoiceNumber,&#10;	"payload": payload&#10;}]' doc:name="Set params" doc:id="e3b24838-5668-4f84-886f-0fc3de2153f9" variableName="invoiceParams" />
+		<logger level="INFO" doc:name="Logger" doc:id="6ed2a8e0-dd5b-468c-8a1e-7ba73d3733ba" message='#["Started running add-invoice-tracking-info flow for order $(vars.invoiceParams.orderId), invoice $(vars.invoiceParams.invoiceNumber)"]'/>
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="7fd110c4-197d-43bb-be71-d4a7423648db" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="b8205046-bb81-44ec-8deb-4694a54b50e5" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="ae49689b-4497-4b0d-ad41-f3e8adc38085" variableName="storeParams" />
+		<logger level="INFO" doc:name="Logger" doc:id="6e6b6a7a-c717-4da1-bfd7-805415491f8e" message='#["Update order partial invoice for order $(vars.invoiceParams.orderId)"]' />
+		<logger level="INFO" doc:name="Logger" doc:id="2cdb4945-3339-4ca5-8e02-6656b2505069" message="#[vars.invoiceParams.payload]" />
+		<try doc:name="Try" doc:id="c8628e21-8346-4b0f-baf1-97620991f176" >
+			<http:request method="PATCH" doc:name="Update order partial invoice" doc:id="146abb59-7f47-42d1-90b6-b172718500a2" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/{orderId}/invoice/{invoiceNumber}"]' responseTimeout="#[p('ecommerce.timeout')]">
+			<http:body><![CDATA[#[vars.invoiceParams.payload]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/json
+---
+{
+	"orderId" : vars.invoiceParams.orderId,
+	"invoiceNumber" : vars.invoiceParams.invoiceNumber
+}]]]></http:uri-params>
+		</http:request>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="eb3a5eeb-6505-4536-9e8c-f803817b2e7f" type="HTTP:NOT_FOUND">
+					<logger level="ERROR" doc:name="Logger" doc:id="d4c9846c-6b00-44d4-b449-56b3e4bed984" message='#["[ecommerce-handling-order] - [update-order-partial-invoice] - Erro ao tentar atualizar o invoice na VTEX para orderId: $(vars.invoiceParams.orderId) e	invoiceNumber $(vars.invoiceParams.invoiceNumber)"]'/>
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="Transform Message" doc:id="0488afc5-dd9e-4afa-876f-8c7d3e669515">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="4dc1eb24-486f-47b8-a4d8-fb3c06f969fb" message='#["Finished running add-invoice-tracking-info flow for order $(vars.invoiceParams.orderId), invoice $(vars.invoiceParams.invoiceNumber)"]' />
+	</flow>
+	<flow name="update-order-status-tracking" doc:id="c549df63-00d9-4c42-9d57-2d036b4a921e" >
+		<set-variable value='#[output application/json&#10;---&#10;{&#10;	"orderId": attributes.uriParams.orderId,&#10;	"invoiceNumber": attributes.uriParams.invoiceNumber,&#10;	"payload": payload	&#10;}]' doc:name="Set params" doc:id="3bf00c8e-9102-4849-bc00-e96e884bd13c" variableName="invoiceParams" />
+		<logger level="INFO" doc:name="Logger" doc:id="19fc91f8-d5e3-4c38-ba85-7c9f228939ce" message='#["Started running add-invoice-tracking-details flow for order $(vars.invoiceParams.orderId), invoice $(vars.invoiceParams.invoiceNumber)"]' />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="b30e818e-a79a-4b56-86ca-c5ec66b90537" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="d4e08945-035a-4053-bcd7-f34e588f4d05" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="4704c6ca-f103-48ec-af73-564bdb68700b" variableName="storeParams" />
+		<logger level="INFO" doc:name="Logger" doc:id="881f4ec3-51e1-4de1-b01b-cd8677c72555" message='#["Update ecommerce tracking for order $(vars.invoiceParams.orderId)"]'/>
+		<logger level="INFO" doc:name="Logger" doc:id="02715f39-ca78-4ebe-a797-5e5b009c451a" message="#[vars.invoiceParams.payload]" />
+		<try doc:name="Try" doc:id="c1766006-39a3-4ca3-a9bb-0b140ec88628" >
+			<http:request method="PUT" doc:name="Update order tracking status" doc:id="829f3e7b-c2fa-4168-998f-8b54fc85d35a" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/{orderId}/invoice/{invoiceNumber}/tracking"]' responseTimeout="#[p('ecommerce.timeout')]">
+			<http:body><![CDATA[#[vars.invoiceParams.payload]]]></http:body>
+			<http:headers><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+			<http:uri-params><![CDATA[#[output application/json
+---
+{
+	"orderId" : vars.invoiceParams.orderId,
+	"invoiceNumber" : vars.invoiceParams.invoiceNumber
+}]]]></http:uri-params>
+		</http:request>
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="9533a4e0-ad82-4083-a55e-3a57ca47d058" type="HTTP:NOT_FOUND">
+					<logger level="ERROR" doc:name="Logger" doc:id="2f12a6f7-c598-431c-beed-bad2b33fde93" message='#["[ecommerce-handling-order] - [update-order-partial-invoice] - Erro ao tentar atualizar o tracking na VTEX para orderId: $(vars.invoiceParams.orderId) e	invoiceNumber $(vars.invoiceParams.invoiceNumber)"]' />
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="Transform Message" doc:id="db9f4dc2-1893-4aae-a120-6b22539242ea">
+			<ee:message>
+				<ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="42ee44e8-29c5-472a-b7d3-7b3d8c9154e7" message='#["Finished running add-invoice-tracking-details flow for order $(vars.invoiceParams.orderId), invoice $(vars.invoiceParams.invoiceNumber)"]' />
+	</flow>
+	<flow name="post-order-invoice-notification" doc:id="a1e2e5e3-aabd-4bde-b864-0afc45359c24" >
+		<logger level="INFO" doc:name="Logger" doc:id="21b078a8-7385-42d5-970c-f75bd9cff0e9" message='#["Post to indicate that the order has been invoiced"]' />
+		<set-variable value="#[payload]" doc:name="Set Variable" doc:id="70cee121-b967-4212-8a81-02c916ab618b" variableName="invoiceParams" />
+		<set-variable value="#[orderId: attributes.uriParams.orderId]" doc:name="Set Variable1" doc:id="e8c192c7-f6ba-494d-a91e-b2b6f17aa534" variableName="uriParams" />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="4b267f24-0617-4431-b054-973cf73de065" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="a001fd68-4f1d-4a73-91eb-6ac292952e88" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="33b0a90d-1f22-4ad9-8466-3803d42c32f7" variableName="storeParams" />
+		<logger level="INFO" doc:name="Logger" doc:id="fe260f82-1ade-473f-b6a5-08d4463d3b4d" message='#["Post order invoice notification for order $(vars.uriParams.orderId)"]' />
+		<logger level="INFO" doc:name="Logger" doc:id="9fd8a707-2061-41e7-b3ec-7cd73560aab2" message="#[vars.invoiceParams]" />
+		<http:request method="POST" doc:name="Order invoice notification" doc:id="0b7722f0-a990-490d-9e57-83fcacfdecd0" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/$(vars.uriParams.orderId)/invoice"]' sendCorrelationId="NEVER" outputMimeType="application/json" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:body ><![CDATA[#[vars.invoiceParams]]]></http:body>
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="92ed1eab-5e38-4e6c-85e5-532d25bb5614" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

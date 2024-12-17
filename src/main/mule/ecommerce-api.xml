@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd ">
+    <http:listener-config name="ecommerce-api-httpListenerConfig">
+        <http:listener-connection host="0.0.0.0" port="${http.port}" />
+    </http:listener-config>
+    <apikit:config name="ecommerce-api-config" api="ecommerce-api.raml" outboundHeadersMapName="outboundHeaders" httpStatusVarName="httpStatus" />
+    <flow name="ecommerce-api-main">
+        <http:listener config-ref="ecommerce-api-httpListenerConfig" path="/api/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:router config-ref="ecommerce-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Bad request"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">400</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Method not allowed"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">405</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not acceptable"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">406</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Unsupported media type"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">415</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Not Implemented"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">501</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="ecommerce-api-console">
+        <http:listener config-ref="ecommerce-api-httpListenerConfig" path="/console/*">
+            <http:response statusCode="#[vars.httpStatus default 200]">
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:response>
+            <http:error-response statusCode="#[vars.httpStatus default 500]">
+                <http:body>#[payload]</http:body>
+                <http:headers>#[vars.outboundHeaders default {}]</http:headers>
+            </http:error-response>
+        </http:listener>
+        <apikit:console config-ref="ecommerce-api-config" />
+        <error-handler>
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+                <ee:transform doc:name="Transform Message">
+                    <ee:message>
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{message: "Resource not found"}]]></ee:set-payload>
+                    </ee:message>
+                    <ee:variables>
+                        <ee:set-variable variableName="httpStatus">404</ee:set-variable>
+                    </ee:variables>
+                </ee:transform>
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\catalog\(storeCode)\sku\(eanCode):ecommerce-api-config">
+        <flow-ref doc:name="Get sku by ean" doc:id="751d821a-3f64-4e8c-b162-ad935d904b7a" name="get-sku-by-ean" />
+    </flow>
+    <flow name="put:\stock\(storeCode)\sku\(skuId):application\json:ecommerce-api-config">
+        <flow-ref doc:name="Update Sku Stock" doc:id="6da14d40-1fa4-4ebc-a742-cfe99469c171" name="update-sku-stock" />
+    </flow>
+    <flow name="post:\stock\(storeCode)\sku\(eanCode):application\json:ecommerce-api-config">
+        <flow-ref doc:name="Update sku" doc:id="21811dad-e92c-428a-b34c-ae7f1abfb863" name="update-sku-stock-flow" />
+        <error-handler>
+            <on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="134e9d08-7884-4419-9f5b-96cdf5d9287e" type="HTTP:NOT_FOUND">
+                <logger level="WARN" doc:name="Logger" doc:id="b0398462-9cc7-4169-a717-6e6582c06ef8" message="ERROR 404" />
+            </on-error-propagate>
+        </error-handler>
+    </flow>
+    <flow name="get:\(storeCode)\orders\feed:ecommerce-api-config">
+        <flow-ref doc:name="Get feed items" doc:id="f63c54ec-cb45-4057-9078-c7e1bb07234d" name="get-feed-items" />
+    </flow>
+    <flow name="post:\(storeCode)\orders\feed:application\json:ecommerce-api-config">
+        <flow-ref doc:name="Commit feed" doc:id="dd5865a7-1f63-4f1a-84f9-8671f69397e6" name="commit-feed" />
+    </flow>
+    <flow name="get:\(storeCode)\orders:ecommerce-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="7a3fd42f-5805-476f-a12f-f23c909da099" name="get-list-orders" />
+    </flow>
+    <flow name="get:\(storeCode)\orders\(orderId):ecommerce-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="a4cb6942-7e43-4549-b442-fa59fc6b1199" name="get-order" />
+    </flow>
+    <flow name="post:\(storeCode)\orders\(orderId)\start-handling:ecommerce-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="ae95b196-bf5f-43d5-97f4-e211bca43f0c" name="post-start-handling-order" />
+    </flow>
+    <flow name="post:\(storeCode)\orders\(orderId)\invoice\(invoiceNumber)\tracking:application\json:ecommerce-api-config">
+        <flow-ref doc:name="Update order status tracking" doc:id="a10aa414-0ee0-432b-9479-14bfce616c90" name="update-order-status-tracking" />
+    </flow>
+    <flow name="post:\(storeCode)\orders\(orderId)\invoice\(invoiceNumber):application\json:ecommerce-api-config">
+        <flow-ref doc:name="Update order partial invoice" doc:id="a4668547-a164-47b5-a7eb-ab951d5340d6" name="update-order-partial-invoice" />
+    </flow>
+    <flow name="post:\(storeCode)\orders\(orderId)\invoice:application\json:ecommerce-api-config">
+        <flow-ref doc:name="Post order invoice notification" doc:id="b33eccbe-ccca-4c68-bdc7-5f3e6a11d60b" name="post-order-invoice-notification" />
+    </flow>
+    <flow name="post:\(storeCode)\orders\(orderId)\cancel:application\json:ecommerce-api-config">
+        <flow-ref doc:name="Flow Reference" doc:id="49a4c110-065e-4673-a567-04e1fc5ccf31" name="post-cancel-order" />
+    </flow>
+</mule>

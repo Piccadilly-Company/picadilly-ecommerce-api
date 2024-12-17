@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:parameters-api="http://www.mulesoft.org/schema/mule/parameters-api"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/parameters-api http://www.mulesoft.org/schema/mule/parameters-api/current/mule-parameters-api.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<configuration-properties doc:name="Configuration properties" doc:id="00744fda-495e-4a8c-8dbe-32e73c4b0fec" file="env/${env}.yaml" />
+	<http:request-config name="ParametersAPI_Request_configuration" doc:name="HTTP Request configuration" doc:id="5483e20e-4665-4f24-84e7-71c209ca87e1" basePath="/api" >
+		<http:request-connection host="${parameters-api.host}"/>
+	</http:request-config>
+	<ee:object-store-caching-strategy name="Caching_Strategy" doc:name="Caching Strategy" doc:id="af4f71b8-9ffd-48a9-b5fc-e582aeb396da" keyGenerationExpression="#[vars.params.storeCode]"/>
+	<http:request-config name="VTEX_Request_configuration" doc:name="HTTP Request configuration" doc:id="961efbea-f07c-4173-83a1-4e8ada0fa2f2">
+		<http:request-connection host="#[payload.url]" />
+	</http:request-config>
+	<global-property doc:name="Global Property" doc:id="b04ad02f-4541-4463-8448-7d12e3f57c05" name="env" value="local" />
+	<parameters-api:config name="Parameters_API_Config" doc:name="Parameters API Config" doc:id="a4ba5c6f-2616-46b9-9df5-97fd43a67796" property_host="${parameters-api.host}" property_port="${parameters-api.port}" property_protocol="${parameters-api.protocol}" property_responseTimeout="${parameters-api.timeout}" property_basePath="/api"/>
+</mule>

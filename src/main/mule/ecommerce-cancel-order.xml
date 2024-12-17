@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:parameters-api="http://www.mulesoft.org/schema/mule/parameters-api"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/parameters-api http://www.mulesoft.org/schema/mule/parameters-api/current/mule-parameters-api.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="post-cancel-order" doc:id="f2e66d86-2e5d-4e1b-bb10-b4ca86c1dfa3" >
+		<logger level="INFO" doc:name="Logger" doc:id="4049f2cd-32b9-4cff-9d59-e70c044661b1" message='#["Post to Cancels an order using its identification orderId $(attributes.uriParams.orderId)"]' />
+		<set-variable value="#[payload]" doc:name="cancelParams" doc:id="078539b1-3f28-4805-88bb-3a5f71ca8bc6" variableName="cancelParams" />
+		<set-variable value="#[{&#10;	orderId: attributes.uriParams.orderId&#10;}]" doc:name="uriParams" doc:id="2f1b393c-fd8b-4070-83b6-007cafa1771b" variableName="uriParams" />
+		<set-variable value="#[attributes.uriParams.storeCode]" doc:name="Set storeCode" doc:id="146aa77b-e13c-481a-aba4-71003cfd91bc" variableName="storeCode" />
+		<flow-ref doc:name="Get store parameters" doc:id="325e72f3-f9cb-4a30-b805-7172100abba3" name="get-store-parameters" />
+		<set-variable value="#[payload]" doc:name="Set store params" doc:id="0082dc64-a65c-421c-9464-2088f919b386" variableName="storeParams" />
+		<http:request method="POST" doc:name="Post Cancel Order" doc:id="34c5ad38-415a-4ffe-a16c-3cb50f53d102" url='#["$(vars.storeParams.url)/api/oms/pvt/orders/$(vars.uriParams.orderId)/cancel"]' sendCorrelationId="NEVER" outputMimeType="application/json" sendBodyMode="ALWAYS" responseTimeout="#[p('ecommerce.timeout')]">
+			<http:body ><![CDATA[#[vars.cancelParams]]]></http:body>
+			<http:headers ><![CDATA[#[output application/java
+---
+{
+	"X-VTEX-API-AppKey" : vars.storeParams.key,
+	"X-VTEX-API-AppToken" : vars.storeParams.token
+}]]]></http:headers>
+		</http:request>
+		<ee:transform doc:name="Transform Message" doc:id="4691b293-1e2a-48e9-9601-4b04a69163c0" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

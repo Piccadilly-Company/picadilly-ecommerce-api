@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation" xmlns:parameters-api="http://www.mulesoft.org/schema/mule/parameters-api"
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/parameters-api http://www.mulesoft.org/schema/mule/parameters-api/current/mule-parameters-api.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+	<flow name="get-store-parameters" doc:id="7fa3e7d4-7cc3-435c-8597-2b61b550cd33" >
+		<parameters-api:get-all-parameters-by-store doc:name="Get All parameters by Store" doc:id="c710a994-fd4e-48f3-a802-4d723fd6ac50" store="#[vars.storeCode]" config-ref="Parameters_API_Config"/>
+		<validation:is-not-empty-collection doc:name="Is not empty collection" doc:id="3b90bae8-eb5a-4677-95c2-43f0f750d37a" message='#["There are no store parameters for store code $(vars.storeCode)"]' />
+		<ee:transform doc:name="Transform Message" doc:id="67f3414a-84f5-4d27-973a-5398cfa82cda" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+
+fun getItemValue(item) = {(payload filter ($.name == item))}.value
+---
+
+{
+   "url": getItemValue("urlvtex"),
+   "key": getItemValue("appkey"),
+   "token": getItemValue("apptoken"),
+   "warehouse": getItemValue("warehouse")
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="1628b441-186d-4d17-bf54-08978d54f30e" type="PARAMETERS-API:CONNECTIVITY, PARAMETERS-API:TIMEOUT">
+				<logger level="INFO" doc:name="Logger" doc:id="0a388f7b-9993-41eb-b198-9e0308ddcabd" message='#["Error on getting parameters for store $(vars.storeCode)"]'/>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>

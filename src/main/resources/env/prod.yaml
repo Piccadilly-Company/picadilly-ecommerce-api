@@ -1,0 +1,13 @@
+http:
+    port: "8083"
+    
+    
+parameters-api:
+  host: "picadilly-parameters-api-prd-3aq9f3.internal-2y6g90.usa-e2.cloudhub.io"
+  port: "443"
+  protocol: "HTTPS"
+  timeout: "5000"
+  
+ecommerce:
+  storeCode: "121"
+  timeout: "20000"

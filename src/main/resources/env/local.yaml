@@ -1,0 +1,13 @@
+http:
+    port: "8083"
+    
+    
+parameters-api:
+  host: "localhost"
+  port: "8081"
+  protocol: "HTTP"
+  timeout: "1000"
+  
+ecommerce:
+  storeCode: "121"
+  timeout: "20000"

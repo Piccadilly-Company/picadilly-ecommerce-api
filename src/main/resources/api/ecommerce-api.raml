@@ -1,0 +1,204 @@
+#%RAML 1.0
+title: Ecommerce API
+
+types:
+  SkuStock: !include data-types/SkuStock.raml
+  CommitItem: !include data-types/CommitItem.raml
+  ListOrders: !include data-types/ListOrders.raml
+  OrdersInvoice: !include data-types/OrdersInvoice.raml
+  OrdersStartHandling: !include data-types/OrdersStartHandling.raml
+  OrdersCancel: !include data-types/OrdersCancel.raml
+  Invoice: !include data-types/Invoice.raml
+  InvoiceTracking: !include data-types/InvoiceTracking.raml
+
+/stock/{storeCode}/sku/{eanCode}:
+  post:
+    displayName: Update sku inventory data
+    body:
+      application/json:
+        type: SkuStock
+        example: !include examples/skuStockExample.raml
+    responses:
+      200:
+        body:
+          application/json:
+            example:
+              value: Sku Inventory updated
+      400:
+        body:
+          application/json:
+            example:
+              value: Error updating Sku Inventory.     
+
+/catalog/{storeCode}/sku/{eanCode}:
+  get:
+    displayName: Get sku data filtered by ean code
+    description: Retrieves sku data by ean code
+    responses:
+      200:
+        body:
+          application/json:
+            type: object
+      400:
+        body:
+          application/json:
+            example:
+              value: Error retrieving inventory data
+
+/{storeCode}/orders/feed:
+  get:
+    displayName: Get feed items
+    description: Retrieves feed items
+    responses:
+      200:
+        body:
+          application/json:
+            type: object[]
+      400:
+        body:
+          application/json:
+            example:
+              value: Error retrieving feed items
+      404:
+        body:
+          application/json:
+            example:
+              value: Feed items not found
+  post:
+    displayName: Commit feed item
+    body:
+      application/json:
+        type: CommitItem
+        example: !include examples/commitItemExample.raml          
+    responses:
+      200:
+        body:
+          application/json:
+            example:
+              value: Feed item commited
+      400:
+        body:
+          application/json:
+            example:
+              value: Error commiting feed item. 
+
+/{storeCode}/orders:
+  get:
+    displayName: Get a list orders
+    queryParameters:
+      orderBy:
+        type: string
+        displayName: orderBy=OrderField,OrderType
+        required: true
+        examples:
+          value: OrderField{creationDate, orderId, items, totalValue or origin},OrderType{asc or desc}
+      f_status:
+        type: string
+        displayName: status
+        required: true
+        example:
+          value: waiting-for-sellers-confirmation, payment-pending, payment-approved, ready-for-handling, handling, invoiced and canceled
+    responses:
+      200:
+        body:
+          application/json:
+            type: ListOrders
+            example: !include examples/ListOrdersExample.raml
+
+  /{orderId}:
+    get:
+      displayName: Get an order
+      description: Retrieves an order by id
+      responses:
+        200:
+          body:
+            application/json:
+              type: object
+        400:
+          body:
+            application/json:
+              example:
+                value: Error retrieving order by id
+        404:
+          body:
+            application/json:
+              example:
+                value: Order not found
+
+  /{orderId}/start-handling:
+    post:
+      displayName: Post Changes the status of an order to indicate that it is in handling.
+      responses:
+        201:
+          body:
+            application/json:
+              type: OrdersStartHandling
+              example: !include examples/OrdersStartHandlingExample.raml
+        400:
+              
+  /{orderId}/invoice:
+    post:
+      displayName: Post indicate that the order has been invoiced
+      body:
+        application/json:
+              type: OrdersInvoice
+              example: !include examples/OrdersInvoiceExample.raml
+      responses:
+        200:
+          body:
+            application/json:
+              example: Order invoice posted successfully
+        400:
+          body:
+            application/json:
+              example:
+                value: Error sending order invoice
+
+  /{orderId}/invoice/{invoiceNumber}:
+    post:
+      displayName: Updates ecommerce order by adding invoice tracking info.
+      body:
+        application/json:
+              type: Invoice
+              example: !include examples/InvoiceExample.raml
+      responses:
+        200:
+          body:
+            application/json:
+              example: Invoice saved successfully
+        400:
+          body:
+            application/json:
+              example:
+                value: Error saving invoice
+
+  /{orderId}/invoice/{invoiceNumber}/tracking:
+    post:
+      displayName: Updates ecommerce order by adding invoice tracking details.
+      body:
+        application/json:
+          type: InvoiceTracking
+          example: !include examples/InvoiceTrackingExample.raml
+      responses:
+        200:
+          body:
+            application/json:
+              example: Invoice tracking saved successfully
+        400:
+          body:
+            application/json:
+              example:
+                value: Error saving invoice tracking
+  
+  /{orderId}/cancel:
+    post:
+      displayName: Cancel order invoice by orderId
+      body:
+        application/json:
+          type: OrdersCancel
+          example: !include examples/OrdersCancelExample.raml
+      responses:
+        200:
+          body:
+            application/json:
+              example: Order invoice canceled successfully
